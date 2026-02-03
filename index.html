@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fresno Population Dot Density</title>
+
+    <!-- ArcGIS JS SDK -->
+    <link rel="stylesheet"
+          href="https://js.arcgis.com/4.30/esri/themes/dark/main.css" />
+    <script src="https://js.arcgis.com/4.30/"></script>
+
+    <style>
+      html, body, #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+      #legendDiv {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 8px 10px;
+        border-radius: 4px;
+      }
+      #legendDiv h3 {
+        margin: 0 0 4px 0;
+        color: #fff;
+        font-size: 12px;
+        font-family: sans-serif;
+      }
+
+      .esri-select {
+        width: 100%;
+        padding: 6px;
+        font-family: sans-serif;
+        font-size: 12px;
+        background-color: #242424; /* Dark gray background */
+        color: #fff;               /* White text */
+        border: 1px solid #666;
+        border-radius: 4px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      .esri-select:focus {
+        border-color: #0079c1; /* ArcGIS Blue highlight on focus */
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="viewDiv"></div>
+    <div id="legendDiv">
+      <h3>Population dot density</h3>
+      
+      <div id="layer-toggle-panel" style="margin-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 10px;">
+        <select id="layerSelect" class="esri-select">
+          <option value="group1" selected>Total Population</option>
+          <option value="group2">U.S.-born, Age 16+</option>
+          <option value="group3">Age 18+</option>
+        </select>
+      </div>
+    </div>
+
+    <script>
+
+      // 1. Module Loading
+      require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/FeatureLayer",
+        "esri/widgets/Legend"
+      ], function (Map, MapView, FeatureLayer, Legend) {
+
+        // ====================================================================
+        // 1. CONFIGURATION
+        // ====================================================================
+        const layerSettings = [
+          {
+            id: "group1", // Matches value in dropdown
+            title: "Total Population",
+            url: "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0",
+            attributes: [
+              { field: "popw", label: "White population (Total)",    color: "#f0f921" },
+              { field: "popb", label: "Black population (Total)",    color: "#ff4b20" },
+              { field: "popa", label: "Asian population (Total)",    color: "#3b4cc0" },
+              { field: "poph", label: "Hispanic population (Total)", color: "#35b779" }
+            ]
+          },
+          {
+            id: "group2",
+            title: "U.S.-born, Age 16+",
+            url: "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0",
+            attributes: [
+              { field: "pop16wnb", label: "White population (U.S.-born, Age 16+)",    color: "#f0f921" },
+              { field: "pop16bnb", label: "Black population (U.S.-born, Age 16+)",    color: "#ff4b20" },
+              { field: "pop16anb", label: "Asian population (U.S.-born, Age 16+)",    color: "#3b4cc0" },
+              { field: "pop16hnb", label: "Hispanic population (U.S.-born, Age 16+)", color: "#35b779" }
+            ]
+          },
+          {
+            id: "group3",
+            title: "Age 18+",
+            url: "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0",
+            attributes: [
+              { field: "pop18w", label: "White population (Age 18+)",    color: "#f0f921" },
+              { field: "pop18b", label: "Black population (Age 18+)",    color: "#ff4b20" },
+              { field: "pop18a", label: "Asian population (Age 18+)",    color: "#3b4cc0" },
+              { field: "pop18h", label: "Hispanic population (Age 18+)", color: "#35b779" }
+            ]
+          }
+          // To add "Group 3", simply copy a block above, paste here, and change the fields/title.
+        ];
+
+        // ====================================================================
+        // 2. LOGIC: Dynamic Layer & Renderer Creation
+        // ====================================================================
+        
+        const layersMap = {}; // Helper to find layers by ID
+        const allLayers = [];
+
+        layerSettings.forEach((setting, index) => {
+          // A. Construct the Dot Density Renderer definition
+          const rendererDef = {
+            type: "dot-density",
+            dotSize: 1.1,
+            outline: null,
+            referenceScale: 577790,
+            legendOptions: { unit: "people" },
+            attributes: setting.attributes
+          };
+
+          // B. Create the Layer
+          const layer = new FeatureLayer({
+            url: setting.url,
+            title: setting.title,
+            renderer: rendererDef,
+            visible: index === 0 // Only the first layer is visible by default
+          });
+
+          // C. Save the initial renderer config to the layer object 
+          // (This is crucial for the "Reset" logic later)
+          layer.initialRendererDef = rendererDef;
+
+          // D. Store references
+          layersMap[setting.id] = layer;
+          allLayers.push(layer);
+        });
+
+        // ====================================================================
+        // 3. MAP & VIEW
+        // ====================================================================
+        const map = new Map({
+          basemap: "dark-gray-vector",
+          layers: allLayers
+        });
+
+        const view = new MapView({
+          container: "viewDiv",
+          map: map,
+          center: [-119.78, 36.74],
+          zoom: 10
+        });
+
+        const legend = new Legend({
+          view: view,
+          container: "legendDiv"
+        });
+
+        // ====================================================================
+        // 4. INTERACTIVE LEGEND LOGIC (Generic)
+        // ====================================================================
+        
+        // Populate the dropdown dynamically based on settings
+        const layerSelect = document.getElementById("layerSelect");
+        if(layerSelect) {
+            layerSelect.innerHTML = ""; // Clear hardcoded options
+            layerSettings.forEach(setting => {
+                const option = document.createElement("option");
+                option.value = setting.id;
+                option.text = setting.title;
+                layerSelect.appendChild(option);
+            });
+        }
+
+        view.when(function () {
+          const legendContainer = legend.container;
+          let activeLabels = new Set();
+          
+          // Helper: Get the currently visible layer
+          function getCurrentLayer() {
+            return allLayers.find(l => l.visible);
+          }
+
+          function getLegendInfos() {
+            // Because only one layer is visible, the legend usually shows that one at index 0
+            const ali = legend.activeLayerInfos.getItemAt(0);
+            if (!ali || !ali.legendElements || ali.legendElements.length === 0) return [];
+            return ali.legendElements[0].infos || [];
+          }
+
+          function getAllAttributeLabels() {
+            return getLegendInfos().map(info => info.label);
+          }
+
+          // Generic Show/Hide Fields function
+          function showSelectedField(labelsToDisplay) {
+            const currentLayer = getCurrentLayer();
+            if (!currentLayer) return;
+
+            if (labelsToDisplay.size === 0) {
+                resetRenderer();
+                return;
+            }
+
+            // Clone the current renderer instance
+            const newRenderer = currentLayer.renderer.clone();
+            
+            // Update opacity based on selection
+            const newAttributes = newRenderer.attributes.map(function (attribute) {
+              attribute.color.a = labelsToDisplay.has(attribute.label) ? 1 : 0;
+              return attribute;
+            });
+
+            newRenderer.attributes = newAttributes;
+            currentLayer.renderer = newRenderer;
+          }
+
+          // Generic Reset function
+          function resetRenderer() {
+            const currentLayer = getCurrentLayer();
+            if (currentLayer && currentLayer.initialRendererDef) {
+                // Restore the renderer from the saved definition
+                currentLayer.renderer = currentLayer.initialRendererDef;
+            }
+          }
+
+          // --- Event Listeners ---
+
+          // 1. Dropdown Change
+          if(layerSelect) {
+              layerSelect.addEventListener("change", function(event) {
+                const selectedId = event.target.value;
+
+                activeLabels.clear(); // Clear interactivity
+                
+                // Hide all, show selected
+                allLayers.forEach(l => l.visible = false);
+                const layerToShow = layersMap[selectedId];
+                if (layerToShow) {
+                  layerToShow.visible = true;
+                  // Ensure it starts fresh
+                  layerToShow.renderer = layerToShow.initialRendererDef;
+                }
+              });
+          }
+
+          // 2. Legend Hover
+          function handleHover(event) {
+            const selectedText = event.target.alt || event.target.innerText;
+            const legendInfos = getLegendInfos();
+            const match = legendInfos.find(info => info.label === selectedText);
+
+            if (!match) {
+              if (activeLabels.size === 0) resetRenderer();
+              else showSelectedField(activeLabels);
+              return;
+            }
+            
+            if (activeLabels.size === getAllAttributeLabels().length) return;
+            
+            const hoverSet = new Set(activeLabels); 
+            hoverSet.add(selectedText); 
+            showSelectedField(hoverSet); 
+          }
+
+          // 3. Legend Click
+          function handleClick(event) {
+            const selectedText = event.target.alt || event.target.innerText;
+            const legendInfos = getLegendInfos();
+            const match = legendInfos.find(info => info.label === selectedText);
+
+            if (!match) {
+              activeLabels.clear();
+              resetRenderer();
+              return;
+            }
+            
+            if (activeLabels.has(selectedText)) activeLabels.delete(selectedText);
+            else activeLabels.add(selectedText);
+            
+            showSelectedField(activeLabels); 
+          }
+          
+          legendContainer.addEventListener("mousemove", handleHover); 
+          legendContainer.addEventListener("click", handleClick);
+        });
+      });
+    </script>
+  </body>
+</html>
