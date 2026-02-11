@@ -2,68 +2,105 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Fresno Population Dot Density</title>
+    <title>Mapping the Origins of Urban Segregation</title>
 
-    <!-- ArcGIS JS SDK -->
-    <link rel="stylesheet"
-          href="https://js.arcgis.com/4.30/esri/themes/dark/main.css" />
+    <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
     <script src="https://js.arcgis.com/4.30/"></script>
 
     <style>
-      html, body, #viewDiv {
-        padding: 0;
-        margin: 0;
-        height: 100%;
-        width: 100%;
+      html, body {
+        padding: 0; margin: 0; height: 100%; width: 100%;
+        display: flex; flex-direction: column;
+        background-color: #f4f4f4;
+        font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+        color: #323232; overflow: hidden;
       }
-      #legendDiv {
-        position: absolute;
-        top: 15px;
-        left: 15px;
-        z-index: 10;
-        background: rgba(0, 0, 0, 0.5);
-        padding: 8px 10px;
-        border-radius: 4px;
+
+      /* Header with Subtitle */
+      #header {
+        height: 60px;
+        background-color: #13284c;
+        border-bottom: 1px solid #dcdcdc;
+        padding: 0 25px;
+        display: flex; align-items: center; gap: 15px; z-index: 20;
       }
-      #legendDiv h3 {
-        margin: 0 0 4px 0;
-        color: #fff;
-        font-size: 12px;
-        font-family: sans-serif;
+      .header-container {
+        display: flex;
+        flex-direction: row;
+        align-items: baseline; /* Aligns text along the bottom edge */
+        gap: 15px; /* Space between title and subtitle */
       }
+      #header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; color: #fff; white-space: nowrap;}
+      .subtitle { font-size: 0.95rem; color: #fff; font-weight: 400; white-space: nowrap;}
+
+      #main-container { display: flex; flex: 1; width: 100%; padding: 10px; box-sizing: border-box; gap: 10px; min-height: 0; }
+
+      #sidebar { width: 320px; display: flex; flex-direction: column; gap: 10px; height: 100%; }
+
+      .side-panel { background-color: #ffffff; border: 1px solid #dcdcdc; padding: 20px; box-sizing: border-box; }
+      
+      #top-panel { flex: 1.5; overflow-y: auto; }
+      
+      /* Taller Metro Panel */
+      #metro-panel { flex: 1; min-height: 220px; display: flex; flex-direction: column; }
 
       .esri-select {
-        width: 100%;
-        padding: 6px;
-        font-family: sans-serif;
-        font-size: 12px;
-        background-color: #242424; /* Dark gray background */
-        color: #fff;               /* White text */
-        border: 1px solid #666;
-        border-radius: 4px;
-        outline: none;
-        cursor: pointer;
+        width: 100%; padding: 10px; background-color: #fff;
+        border: 1px solid #ccc; border-radius: 2px;
+        height: auto; font-size: 0.9rem; line-height: 1.4;
       }
 
-      .esri-select:focus {
-        border-color: #0079c1; /* ArcGIS Blue highlight on focus */
-      }
+      #viewDiv { flex: 1; background-color: #ffffff; border: 1px solid #dcdcdc; }
+
+      #feedback-panel { width: 100%; background-color: #ffffff; border-top: 1px solid #dcdcdc; padding: 12px 0; text-align: center; flex: 0 0 auto; }
     </style>
   </head>
 
   <body>
-    <div id="viewDiv"></div>
-    <div id="legendDiv">
-      <h3>Population dot density</h3>
-      
-      <div id="layer-toggle-panel" style="margin-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 10px;">
-        <select id="layerSelect" class="esri-select">
-          <option value="group1" selected>Total Population</option>
-          <option value="group2">U.S.-born, Age 16+</option>
-          <option value="group3">Age 18+</option>
-        </select>
+    <header id="header">
+      <div class="header-content">
+        <h1>The Mark Fossett Lab: Mapping the Origins of Urban Segregation</h1>
+        <span class="subtitle">Explore 1940 Census Data Across Neighborhoods</span>
       </div>
+    </header>
+
+    <div id="main-container">
+      <aside id="sidebar">
+        <div id="top-panel" class="side-panel">
+          <h3>Select Population Layer</h3>
+          <select id="layerSelect" class="esri-select"></select>
+
+          <div id="legend-section">
+            <h3>Legend</h3>
+            <div id="legendDiv"></div>
+          </div>
+        </div>
+
+        <div id="bottom-panel" class="side-panel">
+          <h3>Metro Area Currently Available</h3>
+          <select id="metroSelect" class="esri-select">
+            <option value="fresno">Fresno, CA</option>
+            <option value="sacramento">Sacramento, CA</option>
+            <option value="san-francisco">San Francisco, CA</option>
+            <option value="austin">Austin, TX</option>
+            <option value="dayton">Dayton, OH</option>
+            <option value="salt-lake-city">Salt Lake City, UT</option>
+          </select>
+          <p style="font-size: 0.8rem; color: #888;">Select a metropolitan area to refocus the map view.</p>
+        </div>
+      </aside>
+
+      <div id="viewDiv"></div>
+      
     </div>
+
+    <footer id="feedback-panel">
+        <p>
+          Have questions or feedback? We'd appreciate them! 
+          Contact <strong>Dr. Amber Crowell</strong> at 
+          <a href="mailto:acrowell@csufresno.edu">acrowell@csufresno.edu</a>
+        </p>
+      </footer>
 
     <script>
 
@@ -115,6 +152,15 @@
           // To add "Group 3", simply copy a block above, paste here, and change the fields/title.
         ];
 
+        const metroLocations = {
+          "fresno": { center: [-119.78, 36.74], zoom: 13 },
+          "sacramento": { center: [-121.4944, 38.5816], zoom: 12 },
+          "san-francisco": { center: [-122.4194, 37.7749], zoom: 12 },
+          "austin": { center: [-97.7431, 30.2672], zoom: 11 },
+          "dayton": { center: [-84.1916, 39.7589], zoom: 12 },
+          "salt-lake-city": { center: [-111.8910, 40.7608], zoom: 12 }
+        };
+
         // ====================================================================
         // 2. LOGIC: Dynamic Layer & Renderer Creation
         // ====================================================================
@@ -122,13 +168,39 @@
         const layersMap = {}; // Helper to find layers by ID
         const allLayers = [];
 
+        function getDotValueForZoom(zoom) {
+          if (zoom > 12) return 1;
+          if (zoom > 10) return 2;
+          if (zoom > 8) return 5;
+          if (zoom > 6)  return 10;
+          return 1000;
+        }
+
+        const metroSelect = document.getElementById("metroSelect");
+
+        metroSelect.addEventListener("change", (event) => {
+          const selectedCity = event.target.value;
+          const location = metroLocations[selectedCity];
+
+          if (location) {
+            // Smoothly pan and zoom to the new city
+            view.goTo({
+              center: location.center,
+              zoom: location.zoom
+            }, {
+              duration: 1500, // 1.5 seconds travel time
+              easing: "ease-in-out"
+            });
+          }
+        });
+
         layerSettings.forEach((setting, index) => {
           // A. Construct the Dot Density Renderer definition
           const rendererDef = {
             type: "dot-density",
             dotSize: 1.1,
             outline: null,
-            referenceScale: 577790,
+            dotValue: getDotValueForZoom(13),
             legendOptions: { unit: "people" },
             attributes: setting.attributes
           };
@@ -162,7 +234,8 @@
           container: "viewDiv",
           map: map,
           center: [-119.78, 36.74],
-          zoom: 10
+          zoom: 13,
+          padding: { left: 0 } // No need for view padding since the sidebar is external
         });
 
         const legend = new Legend({
@@ -171,132 +244,118 @@
         });
 
         // ====================================================================
-        // 4. INTERACTIVE LEGEND LOGIC (Generic)
+        // 4. INTERACTIVE LEGEND LOGIC
         // ====================================================================
         
         // Populate the dropdown dynamically based on settings
         const layerSelect = document.getElementById("layerSelect");
-        if(layerSelect) {
-            layerSelect.innerHTML = ""; // Clear hardcoded options
-            layerSettings.forEach(setting => {
-                const option = document.createElement("option");
-                option.value = setting.id;
-                option.text = setting.title;
-                layerSelect.appendChild(option);
-            });
-        }
+        layerSettings.forEach(setting => {
+            const option = document.createElement("option");
+            option.value = setting.id;
+            option.text = setting.title;
+            layerSelect.appendChild(option);
+        });
 
         view.when(function () {
           const legendContainer = legend.container;
           let activeLabels = new Set();
           
-          // Helper: Get the currently visible layer
-          function getCurrentLayer() {
-            return allLayers.find(l => l.visible);
-          }
+          function getCurrentLayer() { return allLayers.find(l => l.visible); }
 
           function getLegendInfos() {
-            // Because only one layer is visible, the legend usually shows that one at index 0
             const ali = legend.activeLayerInfos.getItemAt(0);
-            if (!ali || !ali.legendElements || ali.legendElements.length === 0) return [];
-            return ali.legendElements[0].infos || [];
+            return (ali && ali.legendElements && ali.legendElements.length > 0) ? ali.legendElements[0].infos : [];
           }
 
-          function getAllAttributeLabels() {
-            return getLegendInfos().map(info => info.label);
-          }
+          function getAllAttributeLabels() { return getLegendInfos().map(info => info.label); }
 
-          // Generic Show/Hide Fields function
           function showSelectedField(labelsToDisplay) {
             const currentLayer = getCurrentLayer();
             if (!currentLayer) return;
-
-            if (labelsToDisplay.size === 0) {
-                resetRenderer();
-                return;
-            }
-
-            // Clone the current renderer instance
+            if (labelsToDisplay.size === 0) { resetRenderer(); return; }
             const newRenderer = currentLayer.renderer.clone();
-            
-            // Update opacity based on selection
-            const newAttributes = newRenderer.attributes.map(function (attribute) {
-              attribute.color.a = labelsToDisplay.has(attribute.label) ? 1 : 0;
-              return attribute;
+            newRenderer.attributes = newRenderer.attributes.map(attr => {
+              attr.color.a = labelsToDisplay.has(attr.label) ? 1 : 0;
+              return attr;
             });
-
-            newRenderer.attributes = newAttributes;
             currentLayer.renderer = newRenderer;
           }
 
-          // Generic Reset function
           function resetRenderer() {
             const currentLayer = getCurrentLayer();
-            if (currentLayer && currentLayer.initialRendererDef) {
-                // Restore the renderer from the saved definition
-                currentLayer.renderer = currentLayer.initialRendererDef;
+            if (currentLayer) currentLayer.renderer = currentLayer.initialRendererDef;
+          }
+
+          layerSelect.addEventListener("change", function(event) {
+            activeLabels.clear();
+            allLayers.forEach(l => l.visible = false);
+            const layerToShow = layersMap[event.target.value];
+            if (layerToShow) {
+              layerToShow.visible = true;
+              const currentZoomValue = getDotValueForZoom(Math.round(view.zoom));
+              const updatedRenderer = layerToShow.renderer.clone();
+              updatedRenderer.dotValue = currentZoomValue;
+              updatedRenderer.legendOptions = { unit: `people (1 dot = ${currentZoomValue})` };
+              
+              layerToShow.renderer = updatedRenderer;
+              layerToShow.initialRendererDef = updatedRenderer;
             }
-          }
+          });
 
-          // --- Event Listeners ---
-
-          // 1. Dropdown Change
-          if(layerSelect) {
-              layerSelect.addEventListener("change", function(event) {
-                const selectedId = event.target.value;
-
-                activeLabels.clear(); // Clear interactivity
-                
-                // Hide all, show selected
-                allLayers.forEach(l => l.visible = false);
-                const layerToShow = layersMap[selectedId];
-                if (layerToShow) {
-                  layerToShow.visible = true;
-                  // Ensure it starts fresh
-                  layerToShow.renderer = layerToShow.initialRendererDef;
-                }
-              });
-          }
-
-          // 2. Legend Hover
-          function handleHover(event) {
+          legendContainer.addEventListener("mousemove", (event) => {
             const selectedText = event.target.alt || event.target.innerText;
-            const legendInfos = getLegendInfos();
-            const match = legendInfos.find(info => info.label === selectedText);
-
+            const match = getLegendInfos().find(info => info.label === selectedText);
             if (!match) {
               if (activeLabels.size === 0) resetRenderer();
               else showSelectedField(activeLabels);
               return;
             }
-            
             if (activeLabels.size === getAllAttributeLabels().length) return;
-            
             const hoverSet = new Set(activeLabels); 
             hoverSet.add(selectedText); 
             showSelectedField(hoverSet); 
-          }
+          });
 
-          // 3. Legend Click
-          function handleClick(event) {
+          legendContainer.addEventListener("click", (event) => {
             const selectedText = event.target.alt || event.target.innerText;
-            const legendInfos = getLegendInfos();
-            const match = legendInfos.find(info => info.label === selectedText);
-
-            if (!match) {
+            if (!getLegendInfos().find(info => info.label === selectedText)) {
               activeLabels.clear();
               resetRenderer();
               return;
             }
-            
             if (activeLabels.has(selectedText)) activeLabels.delete(selectedText);
             else activeLabels.add(selectedText);
-            
             showSelectedField(activeLabels); 
-          }
-          
-          legendContainer.addEventListener("mousemove", handleHover); 
-          legendContainer.addEventListener("click", handleClick);
+          });
+
+          const metroSelect = document.getElementById("metroSelect");
+          metroSelect.addEventListener("change", (event) => {
+            const loc = metroLocations[event.target.value];
+            if (loc) {
+              view.goTo({
+                center: loc.center,
+                zoom: loc.zoom
+              }, { duration: 1500 });
+            }
+          });
+
+          view.watch("zoom", (newValue) => {
+            const currentLayer = allLayers.find(l => l.visible);
+            if (currentLayer) {
+
+              const dynamicValue = getDotValueForZoom(Math.round(newValue));
+
+              const newRenderer = currentLayer.renderer.clone();
+              newRenderer.dotValue = dynamicValue;
+
+              newRenderer.legendOptions = { unit: `people (1 dot = ${dynamicValue})` };
+
+              currentLayer.renderer = newRenderer;
+              
+
+              currentLayer.initialRendererDef = newRenderer;
+            }
+          });
         });
       });
     </script>
