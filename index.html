@@ -27,8 +27,8 @@
       .header-container {
         display: flex;
         flex-direction: row;
-        align-items: baseline; /* Aligns text along the bottom edge */
-        gap: 15px; /* Space between title and subtitle */
+        align-items: baseline;
+        gap: 15px;
       }
       #header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; color: #fff; white-space: nowrap;}
       .subtitle { font-size: 0.95rem; color: #fff; font-weight: 400; white-space: nowrap;}
@@ -41,18 +41,107 @@
       
       #top-panel { flex: 1.5; overflow-y: auto; }
       
-      /* Taller Metro Panel */
       #metro-panel { flex: 1; min-height: 220px; display: flex; flex-direction: column; }
-
       .esri-select {
         width: 100%; padding: 10px; background-color: #fff;
         border: 1px solid #ccc; border-radius: 2px;
-        height: auto; font-size: 0.9rem; line-height: 1.4;
+        height: auto; overflow-y: auto; font-size: 0.9rem; line-height: 1.4;
       }
 
-      #viewDiv { flex: 1; background-color: #ffffff; border: 1px solid #dcdcdc; }
+      /* ── Custom Metro Dropdown ── */
+      .metro-dropdown { position: relative; width: 100%; }
+      .metro-dropdown-btn {
+        width: 100%; padding: 8px 10px;
+        background: #fff; border: 1px solid #ccc; border-radius: 2px;
+        text-align: left; cursor: pointer; font-size: 0.9rem; line-height: 1.4;
+        display: flex; justify-content: space-between; align-items: center;
+        box-sizing: border-box;
+      }
+      .metro-dropdown-btn:hover { border-color: #999; }
+      .metro-dropdown-arrow { font-size: 0.75rem; color: #666; margin-left: 6px; }
+      .metro-dropdown-list {
+        display: none;
+        position: absolute; bottom: 100%; left: 0; right: 0;
+        background: #fff; border: 1px solid #ccc; border-bottom: none;
+        max-height: 200px; overflow-y: auto;
+        z-index: 500; box-shadow: 0 -4px 12px rgba(0,0,0,0.12);
+      }
+      .metro-dropdown-list.open { display: block; }
+      .metro-dropdown-item {
+        padding: 7px 10px; cursor: pointer; font-size: 0.9rem; line-height: 1.4;
+      }
+      .metro-dropdown-item:hover { background: #f0f4fa; }
+      .metro-dropdown-item.selected { background: #e8f0fe; color: #13284c; font-weight: 600; }
+
+      #viewDiv { flex: 1; background-color: #ffffff; border: 1px solid #dcdcdc; position: relative; }
 
       #feedback-panel { width: 100%; background-color: #ffffff; border-top: 1px solid #dcdcdc; padding: 12px 0; text-align: center; flex: 0 0 auto; }
+
+      /* ── Info Dialog ── */
+      #info-dialog {
+        position: absolute;
+        z-index: 100;
+        background: #fff;
+        border: 1px solid #c8c8c8;
+        border-radius: 4px;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+        min-width: 280px;
+        max-width: 360px;
+        font-size: 0.85rem;
+        display: none;
+        pointer-events: auto;
+        overflow: hidden;
+      }
+      #info-dialog.visible { display: block; }
+      #info-dialog-header {
+        background: #13284c;
+        color: #fff;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      #info-dialog-close {
+        cursor: pointer;
+        font-size: 1.1rem;
+        line-height: 1;
+        color: #fff;
+        background: none;
+        border: none;
+        padding: 0 2px;
+        opacity: 0.8;
+      }
+      #info-dialog-close:hover { opacity: 1; }
+      #info-dialog-body { padding: 12px 14px 14px; }
+      #info-dialog table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+      #info-dialog table th {
+        background: #f0f4fa;
+        color: #13284c;
+        text-align: left;
+        padding: 6px 8px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        border-bottom: 2px solid #d0d8e8;
+      }
+      #info-dialog table td {
+        padding: 5px 8px;
+        border-bottom: 1px solid #eee;
+        color: #333;
+        vertical-align: top;
+      }
+      #info-dialog table tr:last-child td { border-bottom: none; }
+      #info-dialog table tr:hover td { background: #f7faff; }
+      .color-swatch {
+        display: inline-block;
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+        border: 1px solid rgba(0,0,0,0.15);
+      }
+      #info-loading { color: #888; font-style: italic; padding: 8px 0; text-align: center; }
     </style>
   </head>
 
@@ -78,33 +167,69 @@
 
         <div id="bottom-panel" class="side-panel">
           <h3>Metro Area Currently Available</h3>
-          <select id="metroSelect" class="esri-select">
-            <option value="fresno">Fresno, CA</option>
-            <option value="sacramento">Sacramento, CA</option>
-            <option value="san-francisco">San Francisco, CA</option>
-            <option value="austin">Austin, TX</option>
-            <option value="dayton">Dayton, OH</option>
-            <option value="salt-lake-city">Salt Lake City, UT</option>
-          </select>
+          <div class="metro-dropdown" id="metroDropdown">
+            <button class="metro-dropdown-btn" id="metroDropdownBtn" type="button">
+              <span id="metroDropdownLabel">Fresno, CA</span>
+              <span class="metro-dropdown-arrow">▾</span>
+            </button>
+            <div class="metro-dropdown-list" id="metroDropdownList">
+              <div class="metro-dropdown-item" data-value="akron">Akron, OH</div>
+              <div class="metro-dropdown-item" data-value="austin">Austin, TX</div>
+              <div class="metro-dropdown-item" data-value="birmingham">Birmingham, AL</div>
+              <div class="metro-dropdown-item" data-value="canton">Canton, OH</div>
+              <div class="metro-dropdown-item" data-value="columbus">Columbus, OH</div>
+              <div class="metro-dropdown-item" data-value="dayton">Dayton, OH</div>
+              <div class="metro-dropdown-item selected" data-value="fresno">Fresno, CA</div>
+              <div class="metro-dropdown-item" data-value="hamilton-middleton">Hamilton-Middleton, OH</div>
+              <div class="metro-dropdown-item" data-value="jackson">Jackson, MS</div>
+              <div class="metro-dropdown-item" data-value="minneapolis-stpaul">Minneapolis-St. Paul, MN</div>
+              <div class="metro-dropdown-item" data-value="pittsburg">Pittsburgh, PA (city only)</div>
+              <div class="metro-dropdown-item" data-value="sacramento">Sacramento, CA</div>
+              <div class="metro-dropdown-item" data-value="san-francisco">San Francisco, CA</div>
+              <div class="metro-dropdown-item" data-value="salt-lake-city">Salt Lake City, UT</div>
+              <div class="metro-dropdown-item" data-value="stockton">Stockton, CA</div>
+              <div class="metro-dropdown-item" data-value="toledo">Toledo, OH</div>
+              <div class="metro-dropdown-item" data-value="tulsa">Tulsa, OK</div>
+              <div class="metro-dropdown-item" data-value="youngstown">Youngstown, OH</div>
+            </div>
+          </div>
           <p style="font-size: 0.8rem; color: #888;">Select a metropolitan area to refocus the map view.</p>
         </div>
       </aside>
 
-      <div id="viewDiv"></div>
-      
+      <div id="viewDiv">
+        <!-- Info popup dialog -->
+        <div id="info-dialog">
+          <div id="info-dialog-header">
+            <span id="info-dialog-title">Enumeration District</span>
+            <button id="info-dialog-close" title="Close">✕</button>
+          </div>
+          <div id="info-dialog-body">
+            <div id="info-loading">Loading…</div>
+            <table id="info-table" style="display:none">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th style="text-align:right">Value</th>
+                </tr>
+              </thead>
+              <tbody id="info-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
     <footer id="feedback-panel">
-        <p>
-          Have questions or feedback? We'd appreciate them! 
-          Contact <strong>Dr. Amber Crowell</strong> at 
-          <a href="mailto:acrowell@csufresno.edu">acrowell@csufresno.edu</a>
-        </p>
-      </footer>
+      <p>
+        Have questions or feedback? We'd appreciate them! 
+        Contact <strong>Dr. Amber Crowell</strong> at 
+        <a href="mailto:acrowell@csufresno.edu">acrowell@csufresno.edu</a>
+      </p>
+    </footer>
 
     <script>
 
-      // 1. Module Loading
       require([
         "esri/Map",
         "esri/views/MapView",
@@ -115,87 +240,80 @@
         // ====================================================================
         // 1. CONFIGURATION
         // ====================================================================
+        const LAYER_URL = "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0";
+
         const layerSettings = [
           {
-            id: "group1", // Matches value in dropdown
+            id: "group1",
             title: "Total Population",
-            url: "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0",
+            url: LAYER_URL,
             attributes: [
-              { field: "popw", label: "White population (Total)",    color: "#f0f921" },
-              { field: "popb", label: "Black population (Total)",    color: "#ff4b20" },
-              { field: "popa", label: "Asian population (Total)",    color: "#3b4cc0" },
-              { field: "poph", label: "Hispanic population (Total)", color: "#35b779" }
+              { field: "popw", label: "White population (Total)",    color: "#6BAED6" },
+              { field: "popb", label: "Black population (Total)",    color: "#FD8D3C" },
+              { field: "popa", label: "Asian population (Total)",    color: "#FF6B9D" },
+              { field: "poph", label: "Hispanic population (Total)", color: "#74C476" }
             ]
-          },
+          },  
           {
             id: "group2",
             title: "U.S.-born, Age 16+",
-            url: "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0",
+            url: LAYER_URL,
             attributes: [
-              { field: "pop16wnb", label: "White population (U.S.-born, Age 16+)",    color: "#f0f921" },
-              { field: "pop16bnb", label: "Black population (U.S.-born, Age 16+)",    color: "#ff4b20" },
-              { field: "pop16anb", label: "Asian population (U.S.-born, Age 16+)",    color: "#3b4cc0" },
-              { field: "pop16hnb", label: "Hispanic population (U.S.-born, Age 16+)", color: "#35b779" }
+              { field: "pop16wnb", label: "White population (U.S.-born, Age 16+)",    color: "#6BAED6" },
+              { field: "pop16bnb", label: "Black population (U.S.-born, Age 16+)",    color: "#FD8D3C" },
+              { field: "pop16anb", label: "Asian population (U.S.-born, Age 16+)",    color: "#FF6B9D" },
+              { field: "pop16hnb", label: "Hispanic population (U.S.-born, Age 16+)", color: "#74C476" }
             ]
           },
           {
             id: "group3",
             title: "Age 18+",
-            url: "https://services1.arcgis.com/qr14biwnHA6Vis6l/arcgis/rest/services/atlas_joined/FeatureServer/0",
+            url: LAYER_URL,
             attributes: [
-              { field: "pop18w", label: "White population (Age 18+)",    color: "#f0f921" },
-              { field: "pop18b", label: "Black population (Age 18+)",    color: "#ff4b20" },
-              { field: "pop18a", label: "Asian population (Age 18+)",    color: "#3b4cc0" },
-              { field: "pop18h", label: "Hispanic population (Age 18+)", color: "#35b779" }
+              { field: "pop18w", label: "White population (Age 18+)",    color: "#6BAED6" },
+              { field: "pop18b", label: "Black population (Age 18+)",    color: "#FD8D3C" },
+              { field: "pop18a", label: "Asian population (Age 18+)",    color: "#FF6B9D" },
+              { field: "pop18h", label: "Hispanic population (Age 18+)", color: "#74C476" }
             ]
           }
-          // To add "Group 3", simply copy a block above, paste here, and change the fields/title.
         ];
 
         const metroLocations = {
-          "fresno": { center: [-119.78, 36.74], zoom: 13 },
-          "sacramento": { center: [-121.4944, 38.5816], zoom: 13 },
-          "san-francisco": { center: [-122.4194, 37.7749], zoom: 13 },
-          "austin": { center: [-97.7431, 30.2672], zoom: 13 },
-          "dayton": { center: [-84.1916, 39.7589], zoom: 13 },
-          "salt-lake-city": { center: [-111.8910, 40.7608], zoom: 13 }
+          "akron":              { center: [-81.5190, 41.0814],  zoom: 12 },
+          "austin":             { center: [-97.7431, 30.2672],  zoom: 11 },
+          "birmingham":         { center: [-86.8104, 33.5186],  zoom: 12 },
+          "canton":             { center: [-81.3784, 40.7989],  zoom: 12 },
+          "columbus":           { center: [-82.9988, 39.9612],  zoom: 12 },
+          "dayton":             { center: [-84.1916, 39.7589],  zoom: 12 },
+          "fresno":             { center: [-119.7871, 36.7378], zoom: 13 },
+          "hamilton-middleton": { center: [-84.4500, 39.4500],  zoom: 11 },
+          "jackson":            { center: [-90.1848, 32.2988],  zoom: 12 },
+          "minneapolis-stpaul": { center: [-93.1611, 44.9441],  zoom: 11 },
+          "pittsburg":          { center: [-79.9959, 40.4406],  zoom: 12 },
+          "sacramento":         { center: [-121.4944, 38.5816], zoom: 12 },
+          "san-francisco":      { center: [-122.4194, 37.7749], zoom: 12 },
+          "salt-lake-city":     { center: [-111.8910, 40.7608], zoom: 12 },
+          "stockton":           { center: [-121.2908, 37.9577], zoom: 12 },
+          "toledo":             { center: [-83.5379, 41.6528],  zoom: 12 },
+          "tulsa":              { center: [-95.9928, 36.1540],  zoom: 12 },
+          "youngstown":         { center: [-80.6495, 41.0998],  zoom: 12 }
         };
 
         // ====================================================================
         // 2. LOGIC: Dynamic Layer & Renderer Creation
         // ====================================================================
-        
-        const layersMap = {}; // Helper to find layers by ID
+        const layersMap = {};
         const allLayers = [];
 
         function getDotValueForZoom(zoom) {
           if (zoom > 12) return 1;
           if (zoom > 10) return 2;
-          if (zoom > 8) return 5;
+          if (zoom > 8)  return 5;
           if (zoom > 6)  return 10;
           return 1000;
         }
 
-        const metroSelect = document.getElementById("metroSelect");
-
-        metroSelect.addEventListener("change", (event) => {
-          const selectedCity = event.target.value;
-          const location = metroLocations[selectedCity];
-
-          if (location) {
-            // Smoothly pan and zoom to the new city
-            view.goTo({
-              center: location.center,
-              zoom: location.zoom
-            }, {
-              duration: 1500, // 1.5 seconds travel time
-              easing: "ease-in-out"
-            });
-          }
-        });
-
         layerSettings.forEach((setting, index) => {
-          // A. Construct the Dot Density Renderer definition
           const rendererDef = {
             type: "dot-density",
             dotSize: 1.1,
@@ -205,29 +323,43 @@
             attributes: setting.attributes
           };
 
-          // B. Create the Layer
           const layer = new FeatureLayer({
             url: setting.url,
             title: setting.title,
             renderer: rendererDef,
-            visible: index === 0 // Only the first layer is visible by default
+            visible: index === 0,
+            popupEnabled: false
           });
 
-          // C. Save the initial renderer config to the layer object 
-          // (This is crucial for the "Reset" logic later)
           layer.initialRendererDef = rendererDef;
-
-          // D. Store references
           layersMap[setting.id] = layer;
           allLayers.push(layer);
         });
 
         // ====================================================================
-        // 3. MAP & VIEW
+        // 3. BOUNDARY LAYER (transparent fill, visible outline)
+        // ====================================================================
+        const boundaryLayer = new FeatureLayer({
+          url: LAYER_URL,
+          title: "Enumeration District Boundaries",
+          renderer: {
+            type: "simple",
+            symbol: {
+              type: "simple-fill",
+              color: [0, 0, 0, 0],
+              outline: { color: [255, 255, 255, 160], width: 0.6 }
+            }
+          },
+          popupEnabled: false,
+          legendEnabled: false
+        });
+
+        // ====================================================================
+        // 4. MAP & VIEW
         // ====================================================================
         const map = new Map({
           basemap: "dark-gray-vector",
-          layers: allLayers
+          layers: [...allLayers, boundaryLayer]
         });
 
         const view = new MapView({
@@ -235,7 +367,7 @@
           map: map,
           center: [-119.78, 36.74],
           zoom: 13,
-          padding: { left: 0 } // No need for view padding since the sidebar is external
+          padding: { left: 0 }
         });
 
         const legend = new Legend({
@@ -244,22 +376,163 @@
         });
 
         // ====================================================================
-        // 4. INTERACTIVE LEGEND LOGIC
+        // 5. METRO DROPDOWN
         // ====================================================================
-        
-        // Populate the dropdown dynamically based on settings
-        const layerSelect = document.getElementById("layerSelect");
-        layerSettings.forEach(setting => {
-            const option = document.createElement("option");
-            option.value = setting.id;
-            option.text = setting.title;
-            layerSelect.appendChild(option);
+        const metroBtn  = document.getElementById("metroDropdownBtn");
+        const metroList = document.getElementById("metroDropdownList");
+        const metroLabel = document.getElementById("metroDropdownLabel");
+
+        metroBtn.addEventListener("click", () => metroList.classList.toggle("open"));
+
+        document.addEventListener("click", (e) => {
+          if (!document.getElementById("metroDropdown").contains(e.target))
+            metroList.classList.remove("open");
         });
 
+        metroList.querySelectorAll(".metro-dropdown-item").forEach(item => {
+          item.addEventListener("click", () => {
+            const val = item.dataset.value;
+            const loc = metroLocations[val];
+            if (loc) view.goTo({ center: loc.center, zoom: loc.zoom }, { duration: 1500, easing: "ease-in-out" });
+            metroLabel.textContent = item.textContent;
+            metroList.querySelectorAll(".metro-dropdown-item").forEach(i => i.classList.remove("selected"));
+            item.classList.add("selected");
+            metroList.classList.remove("open");
+          });
+        });
+
+        // ====================================================================
+        // 6. VIEW READY
+        // ====================================================================
         view.when(function () {
+
+          // ── Dialog references ──
+          const infoDialog    = document.getElementById("info-dialog");
+          const infoTitle     = document.getElementById("info-dialog-title");
+          const infoLoading   = document.getElementById("info-loading");
+          const infoTable     = document.getElementById("info-table");
+          const infoTableBody = document.getElementById("info-table-body");
+          const ID_FIELDS     = ["GISJOIN", "gisjoin", "ED", "ed", "OBJECTID", "FID"];
+
+          document.getElementById("info-dialog-close").addEventListener("click", () =>
+            infoDialog.classList.remove("visible")
+          );
+
+          infoDialog.addEventListener("click", (e) => e.stopPropagation());
+
+          function getCurrentLayerSetting() {
+            const selectedId = document.getElementById("layerSelect").value;
+            return layerSettings.find(s => s.id === selectedId) || layerSettings[0];
+          }
+
+          function showDialog(screenPoint, attributes) {
+            const container = document.getElementById("viewDiv");
+            const rect = container.getBoundingClientRect();
+            let left = screenPoint.x + 12;
+            let top  = screenPoint.y - 10;
+            if (left + 380 > rect.width)  left = screenPoint.x - 380 - 12;
+            if (left < 0) left = 8;
+            if (top + 320 > rect.height)  top = rect.height - 320;
+            if (top < 0) top = 8;
+
+            infoDialog.style.left = left + "px";
+            infoDialog.style.top  = top  + "px";
+            infoLoading.style.display = "none";
+            infoTable.style.display   = "table";
+            infoTableBody.innerHTML   = "";
+
+            const setting = getCurrentLayerSetting();
+
+            // District ID row
+            let idValue = "—";
+            for (const f of ID_FIELDS) {
+              if (attributes[f] !== undefined && attributes[f] !== null) {
+                idValue = attributes[f];
+                infoTitle.textContent = "ED: " + idValue;
+                break;
+              }
+            }
+            if (idValue === "—") infoTitle.textContent = "Enumeration District";
+
+            const idRow = document.createElement("tr");
+            idRow.innerHTML = `<td><strong>District ID</strong></td><td style="text-align:right"><strong>${idValue}</strong></td>`;
+            infoTableBody.appendChild(idRow);
+
+            // Group label row
+            const sepRow = document.createElement("tr");
+            sepRow.innerHTML = `<td colspan="2" style="padding:4px 8px;font-size:0.78rem;color:#888;background:#f8f8f8;font-style:italic">${setting.title}</td>`;
+            infoTableBody.appendChild(sepRow);
+
+            // Population rows
+            setting.attributes.forEach(attr => {
+              const val = attributes[attr.field];
+              const displayVal = (val !== null && val !== undefined) ? Number(val).toLocaleString() : "N/A";
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td><span class="color-swatch" style="background:${attr.color}"></span>${attr.label}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums">${displayVal}</td>
+              `;
+              infoTableBody.appendChild(tr);
+            });
+
+            infoDialog.classList.add("visible");
+          }
+
+          // ── Click handler ──
+          view.on("click", async (event) => {
+            const stale = document.getElementById("info-no-data-msg");
+            if (stale) stale.remove();
+            infoLoading.style.display = "block";
+            infoTable.style.display   = "none";
+            infoTitle.textContent     = "Enumeration District";
+            infoDialog.style.left     = (event.x + 12) + "px";
+            infoDialog.style.top      = (event.y - 10) + "px";
+            infoDialog.classList.add("visible");
+
+            try {
+              await boundaryLayer.load();
+
+              const query = boundaryLayer.createQuery();
+              query.geometry            = event.mapPoint;
+              query.spatialRelationship = "intersects";
+              query.outFields           = ["*"];
+              query.returnGeometry      = false;
+              query.num                 = 1;
+
+              const result = await boundaryLayer.queryFeatures(query);
+              if (result.features.length > 0) {
+                showDialog(event, result.features[0].attributes);
+              } else {
+                infoLoading.style.display = "none";
+                infoTable.style.display   = "none";
+                infoTitle.textContent     = "No Data";
+                const noDataMsg = document.createElement("p");
+                noDataMsg.style.cssText   = "margin:8px 0;color:#888;font-style:italic;text-align:center";
+                noDataMsg.textContent     = "No enumeration district at this location.";
+                infoTableBody.innerHTML   = "";
+                infoTable.parentNode.insertBefore(noDataMsg, infoTable);
+                // Remove the message when the dialog is next opened
+                noDataMsg.id = "info-no-data-msg";
+              }
+            } catch (err) {
+              console.error("Click query error:", err);
+              infoLoading.style.display = "none";
+              infoTitle.textContent     = "Error";
+              const errMsg = document.createElement("p");
+              errMsg.style.cssText      = "margin:8px 0;color:#c00;font-style:italic;text-align:center";
+              errMsg.textContent        = "Could not load data. Please try again.";
+              infoTableBody.innerHTML   = "";
+              const existing = document.getElementById("info-no-data-msg");
+              if (existing) existing.remove();
+              infoTable.parentNode.insertBefore(errMsg, infoTable);
+              errMsg.id = "info-no-data-msg";
+            }
+          });
+
+          // ── Legend interactivity ──
           const legendContainer = legend.container;
           let activeLabels = new Set();
-          
+
           function getCurrentLayer() { return allLayers.find(l => l.visible); }
 
           function getLegendInfos() {
@@ -286,7 +559,16 @@
             if (currentLayer) currentLayer.renderer = currentLayer.initialRendererDef;
           }
 
-          layerSelect.addEventListener("change", function(event) {
+          // Populate layer dropdown
+          const layerSelect = document.getElementById("layerSelect");
+          layerSettings.forEach(setting => {
+            const option = document.createElement("option");
+            option.value = setting.id;
+            option.text  = setting.title;
+            layerSelect.appendChild(option);
+          });
+
+          layerSelect.addEventListener("change", function (event) {
             activeLabels.clear();
             allLayers.forEach(l => l.visible = false);
             const layerToShow = layersMap[event.target.value];
@@ -296,10 +578,10 @@
               const updatedRenderer = layerToShow.renderer.clone();
               updatedRenderer.dotValue = currentZoomValue;
               updatedRenderer.legendOptions = { unit: `people (1 dot = ${currentZoomValue})` };
-              
               layerToShow.renderer = updatedRenderer;
               layerToShow.initialRendererDef = updatedRenderer;
             }
+            infoDialog.classList.remove("visible");
           });
 
           legendContainer.addEventListener("mousemove", (event) => {
@@ -311,48 +593,29 @@
               return;
             }
             if (activeLabels.size === getAllAttributeLabels().length) return;
-            const hoverSet = new Set(activeLabels); 
-            hoverSet.add(selectedText); 
-            showSelectedField(hoverSet); 
+            const hoverSet = new Set(activeLabels);
+            hoverSet.add(selectedText);
+            showSelectedField(hoverSet);
           });
 
           legendContainer.addEventListener("click", (event) => {
             const selectedText = event.target.alt || event.target.innerText;
             if (!getLegendInfos().find(info => info.label === selectedText)) {
-              activeLabels.clear();
-              resetRenderer();
-              return;
+              activeLabels.clear(); resetRenderer(); return;
             }
             if (activeLabels.has(selectedText)) activeLabels.delete(selectedText);
             else activeLabels.add(selectedText);
-            showSelectedField(activeLabels); 
-          });
-
-          const metroSelect = document.getElementById("metroSelect");
-          metroSelect.addEventListener("change", (event) => {
-            const loc = metroLocations[event.target.value];
-            if (loc) {
-              view.goTo({
-                center: loc.center,
-                zoom: loc.zoom
-              }, { duration: 1500 });
-            }
+            showSelectedField(activeLabels);
           });
 
           view.watch("zoom", (newValue) => {
             const currentLayer = allLayers.find(l => l.visible);
             if (currentLayer) {
-
               const dynamicValue = getDotValueForZoom(Math.round(newValue));
-
               const newRenderer = currentLayer.renderer.clone();
               newRenderer.dotValue = dynamicValue;
-
               newRenderer.legendOptions = { unit: `people (1 dot = ${dynamicValue})` };
-
               currentLayer.renderer = newRenderer;
-              
-
               currentLayer.initialRendererDef = newRenderer;
             }
           });
@@ -361,4 +624,3 @@
     </script>
   </body>
 </html>
-
